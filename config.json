@@ -1,6 +1,6 @@
 {
 	"user": "username",
 	"password": "userpassword",
-    "server": "servername",
-    "database": "databasename"
+	"server": "servername",
+	"database": "databasename"
 }
