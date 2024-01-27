@@ -52,6 +52,28 @@ async function initDoc() {
 	const top = fs.readFileSync('top.html', 'utf8')
 	dbDoc.write(top)
 	dbDoc.write(`\t<h1>${config.database}</h1>\n`)
+	const sqlQuery = `
+	SELECT sys.databases.*, sys.extended_properties.value AS description
+	FROM sys.databases
+	  LEFT JOIN sys.extended_properties ON sys.extended_properties.class = 0 AND sys.extended_properties.name = 'MS_Description'
+	WHERE sys.databases.name = '${config.database}';
+	`
+	const dbData = await pool.request()
+		.query(sqlQuery)
+	// console.log(dbData)
+	dbDoc.write('\t<div class="description-box">\n')
+	if (dbData.recordset[0].description) {
+		dbDoc.write(`
+		<div class="object-description">
+			<div>//</div>
+			<div>${dbData.recordset[0].description}</div>
+		</div>
+		`)
+	}
+	dbDoc.write(`
+		<p>Created: <strong>${dbData.recordset[0].create_date}</strong></p>
+	</div>
+	`)
 }
 
 async function closeDoc() {
@@ -108,9 +130,10 @@ async function processTableData(tableName) {
 async function processTableIndexes(tableObject) {
 	try {
 		const sqlQuery = `
-		SELECT *
+		SELECT sys.indexes.*, sys.extended_properties.value AS description
 		FROM sys.indexes
-		where object_id = ${tableObject} AND type > 0;
+		  LEFT JOIN sys.extended_properties ON sys.indexes.object_id = sys.extended_properties.major_id AND sys.indexes.index_id = sys.extended_properties.minor_id AND sys.extended_properties.name = 'MS_Description'
+		WHERE object_id = ${tableObject} AND type > 0;
 		`
 		const dbIndexes = await pool.request()
 			.query(sqlQuery)
@@ -121,6 +144,14 @@ async function processTableIndexes(tableObject) {
 		for (const row of dbIndexes.recordset) {
 			// console.log(`----Index ${row.name}, is_unique=${row.is_unique} (${typeof(row.is_unique)})`)
 			dbDoc.write('\t\t<li>\n')
+			if (row.description) {
+				dbDoc.write(`
+			<div class="inner-description object-description" style="--inner-columns: 3;">
+				<div>//</div>
+				<div>${row.description}</div>
+			</div>
+				`)
+			}
 			dbDoc.write(`\t\t\t<div>${row.name}</div>\n`)
 			dbDoc.write(`\t\t\t<div>${row.is_unique ? 'UNIQUE' : ''}</div>\n`)
 			const sqlQuery2 = `
@@ -153,11 +184,12 @@ async function processTableIndexes(tableObject) {
 async function processTableColumns(tableObject) {
 	try {
 		const sqlQuery = `
-		SELECT sys.columns.*, sys.types.name AS typeName, sys.extended_properties.value AS description
+		SELECT sys.columns.*, sys.types.name AS typeName, sys.extended_properties.value AS description, sys.identity_columns.seed_value, sys.identity_columns.increment_value
 		FROM sys.columns
-		  INNER JOIN sys.types ON ((sys.columns.system_type_id = sys.types.system_type_id) AND (sys.columns.user_type_id = sys.types.user_type_id))
+		  INNER JOIN sys.types ON ((sys.columns.system_type_id = sys.types.system_type_id) and (sys.columns.user_type_id = sys.types.user_type_id))
 		  LEFT JOIN sys.extended_properties ON sys.columns.object_id = sys.extended_properties.major_id AND sys.columns.column_id = sys.extended_properties.minor_id AND sys.extended_properties.name = 'MS_Description'
-		WHERE object_id = ${tableObject};
+		  LEFT JOIN sys.identity_columns ON sys.columns.object_id = sys.identity_columns.object_id AND sys.columns.column_id = sys.identity_columns.column_id
+		WHERE sys.columns.object_id = ${tableObject};
 		`
 		const dbColumns = await pool.request()
 			.query(sqlQuery)
@@ -168,17 +200,37 @@ async function processTableColumns(tableObject) {
 		for (const row of dbColumns.recordset) {
 			// console.log(`--${row.name}`)
 			dbDoc.write('\t\t<li>\n')
+			if (row.description) {
+				dbDoc.write(`
+			<div class="inner-description object-description" style="--inner-columns: 2;">
+				<div>//</div>
+				<div>${row.description}</div>
+			</div>
+				`)
+			}
 			dbDoc.write(`\t\t\t<div>${row.name}</div>\n`)
 			let colDef
 			switch (row.typeName) {
-				case 'varchar':
-				case 'nvarchar':
+				case 'binary':
 				case 'char':
+				case 'datetime2':
+				case 'datetimeoffset':
 				case 'nchar':
-					colDef = `[${row.typeName}](${row.max_length})`
+				case 'nvarchar':
+				case 'time':
+				case 'varbinary':
+				case 'varchar':
+					colDef = `[${row.typeName}](${row.max_length === -1 ? 'MAX' : row.max_length})`
+					break
+				case 'decimal':
+				case 'numeric':
+					colDef = `[${row.typeName}](${row.precision}, ${row.scale})`
 					break
 				default:
 					colDef = `[${row.typeName}]`
+			}
+			if (row.is_identity) {
+				colDef += ` <span class="highlight-blue">IDENTITY</span> (${row.seed_value},${row.increment_value})`
 			}
 			colDef += row.is_nullable ? ' NULL' : ' NOT NULL'
 			dbDoc.write(`\t\t\t<div>${colDef}</div>\n`)
@@ -191,16 +243,29 @@ async function processTableColumns(tableObject) {
 	}
 }
 
-async function processTable(tableName, tableObject) {
-	console.log(`Processing Table: ${tableName}`)
-	dbDoc.write(`\t<a id="${tableName}"></a>\n`)
-	dbDoc.write(`\t<h2>${tableName}</h2>\n`)
+async function processTable(table) {
+	console.log(`Processing Table: ${table.name}`)
+	dbDoc.write(`\t<a id="${table.name}"></a>\n`)
+	dbDoc.write(`\t<h2>${table.name}</h2>\n`)
+	dbDoc.write('\t<div class="description-box">\n')
+	if (table.description) {
+		dbDoc.write(`
+		<div class="object-description">
+			<div>//</div>
+			<div>${table.description}</div>
+		</div>
+		`)
+	}
+	dbDoc.write(`
+		<p>Created: <strong>${table.create_date}</strong>, Modified: <strong>${table.modify_date}</strong></p>
+	</div>
+	`)
 	console.log('--Columns')
-	await processTableColumns(tableObject)
+	await processTableColumns(table.object_id)
 	console.log('--Indexes')
-	await processTableIndexes(tableObject)
+	await processTableIndexes(table.object_id)
 	console.log('--Sample Data')
-	await processTableData(tableName)
+	await processTableData(table.name)
 	dbDoc.write('\n')
 }
 
@@ -209,9 +274,10 @@ async function processDB () {
 		pool = await sql.connect(config)
 		await initDoc()
 		const sqlQuery = `
-			SELECT TOP 10 *
-			FROM sys.tables
-			ORDER BY name;
+		SELECT sys.tables.*, sys.extended_properties.value AS description
+		FROM sys.tables
+		  LEFT JOIN sys.extended_properties ON sys.tables.object_id = sys.extended_properties.major_id AND sys.extended_properties.minor_id = 0 AND sys.extended_properties.name = 'MS_Description'
+		ORDER BY sys.tables.name;
 		`
 		const dbTables = await pool.request()
 			.query(sqlQuery)
@@ -220,7 +286,7 @@ async function processDB () {
 		await writeTableJump(dbTables.recordset)
 		for (const row of dbTables.recordset) {
 			// console.log(row.name)
-			await processTable(row.name, row.object_id)
+			await processTable(row)
 		}
 		await closeDoc()
 		process.exit()
