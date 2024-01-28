@@ -4,9 +4,9 @@ Create HTML documentation for a SQL Server database.
 
 ## Description
 
-Creates an HTML document that describes a SQL Server database. Output for each table includes columns, indexes and up to ten rows of sample data. A quick jump tag list of all tables is placed at the top.
+Creates an HTML document that describes a SQL Server database. Output for each table includes columns, indexes, foreign keys, check constraints and up to ten rows of sample data. A quick jump tag list of all tables is placed at the top.
 
-This is very work-in-progress for a specific need but I'm hoping to make it more robust for general usage. Feel free to make comments or suggestion in the Discussion area.
+This is very work-in-progress for a specific need but I'm hoping to make it more robust for general usage. Feel free to make comments or suggestion in the Discussions area.
 
 ## Usage
 
@@ -23,7 +23,7 @@ The configuration file follows this format:
 }
 ```
 
-The `config.json` included in this package matches the above code and will not funvtion without editing with real values. The file exists simply as a template.
+The `config.json` included in this package matches the above code and will not function without editing with real values. The file exists simply as a template.
 
 The command line arguments are:
 
