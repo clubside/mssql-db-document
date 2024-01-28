@@ -2,6 +2,7 @@
 vgpavilion.json
 *.html
 !top.html
+!docs/AdventureWorks2014.html
 
 # Logs
 logs
