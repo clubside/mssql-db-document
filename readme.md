@@ -6,6 +6,10 @@ Create HTML documentation for a SQL Server database.
 
 Creates an HTML document that describes a SQL Server database. Output for each table includes columns, indexes, foreign keys, check constraints and up to ten rows of sample data. A quick jump tag list of all tables is placed at the top.
 
+You can view sample output based on Microsoft's `AdventureWorks2014` database here:
+
+[GitHub Pages](https://clubside.github.io/mssql-db-document/)
+
 This is very work-in-progress for a specific need but I'm hoping to make it more robust for general usage. Feel free to make comments or suggestion in the Discussions area.
 
 ## Usage
