@@ -131,23 +131,40 @@
 		border-radius: 0.5em;
 		background-color: #ccc;
 	}
-	.columns-definition li {
+	.columns-definition li,
+	.indexes-definition li,
+	.foreign-keys-definition li,
+	.check-constraints-definition li {
 		display: grid;
 		grid-template-columns: 3fr 2fr;
-		margin-block: 0.25em;
+		line-height: 1.6;
+		padding: 0.2em 0;
 	}
 	.indexes-definition li {
-		display: grid;
 		grid-template-columns: 2fr 6em 3fr;
-		margin-block: 0.25em;
+	}
+	.foreign-keys-definition li {
+		grid-template-columns: 3fr 2fr 3fr;
+	}
+	.check-constraints-definition li {
+		grid-template-columns: 3fr 2fr;
 	}
 	.columns-definition li div,
-	.indexes-definition li div {
-		padding: 0.25em 0.5em;
+	.indexes-definition li div,
+	.foreign-keys-definition li div,
+	.check-constraints-definition li div {
+		padding: 0 0.25em;
+		overflow-wrap: anywhere;
 	}
 	.columns-definition li:nth-child(even),
-	.indexes-definition li:nth-child(even) {
+	.indexes-definition li:nth-child(even),
+	.foreign-keys-definition li:nth-child(even),
+	.check-constraints-definition li:nth-child(even) {
 		background-color: #ddd;
+	}
+	.indexes-definition svg {
+		width: 1em;
+		height: 1em;
 	}
 	.table-data {
 		display: grid;
@@ -163,8 +180,8 @@
 		background-color: #bbb;
 	}
 	.description-box {
-		background-color: #ccc;
-		padding: 1em;
+		padding-bottom: 0.5em;
+		border-bottom: 2px solid black;
 	}
 	.object-description {
 		display: grid;
@@ -182,6 +199,9 @@
 	.indexes-definition .object-description div {
 		padding: 0;
 	}
+	.align-center {
+		text-align: center;
+	}
 	.highlight-blue {
 		color: blue;
 	}
@@ -195,3 +215,7 @@
 </head>
 
 <body>
+<svg style="display: none">
+	<symbol id="sort-asc" viewBox="0 0 512 512"><path d="M8 256C8 119 119 8 256 8s248 111 248 248-111 248-248 248S8 393 8 256zm292 116V256h70.9c10.7 0 16.1-13 8.5-20.5L264.5 121.2c-4.7-4.7-12.2-4.7-16.9 0l-115 114.3c-7.6 7.6-2.2 20.5 8.5 20.5H212v116c0 6.6 5.4 12 12 12h64c6.6 0 12-5.4 12-12z"/></symbol>
+	<symbol id="sort-desc" viewBox="0 0 512 512"><path d="M504 256c0 137-111 248-248 248S8 393 8 256 119 8 256 8s248 111 248 248zM212 140v116h-70.9c-10.7 0-16.1 13-8.5 20.5l114.9 114.3c4.7 4.7 12.2 4.7 16.9 0l114.9-114.3c7.6-7.6 2.2-20.5-8.5-20.5H300V140c0-6.6-5.4-12-12-12h-64c-6.6 0-12 5.4-12 12z"/></symbol>
+</svg>

@@ -91,16 +91,16 @@ async function closeDoc() {
 async function writeTableJump(tableData) {
 	dbDoc.write('\t<div class="table-jump">\n')
 	for (const table of tableData) {
-		dbDoc.write(`\t\t<a href="#${table.name}">${table.name}</a>\n`)
+		dbDoc.write(`\t\t<a href="#${table.schemaName === 'dbo' ? '' : table.schemaName + '-'}${table.name}">${table.schemaName === 'dbo' ? '' : table.schemaName + '.'}${table.name}</a>\n`)
 	}
 	dbDoc.write('\t</div>\n\n')
 }
 
-async function processTableData(tableName) {
+async function processTableData(schemaName, tableName) {
 	try {
 		const sqlQuery = `
 		SELECT TOP 10 *
-		FROM ${tableName};
+		FROM ${schemaName === 'dbo' ? '' : schemaName + '.'}${tableName};
 		`
 		const dbData = await pool.request()
 			.query(sqlQuery)
@@ -127,18 +127,126 @@ async function processTableData(tableName) {
 	}
 }
 
+async function processTableCheckConstraints(tableObject) {
+	try {
+		const sqlQuery = `
+		SELECT sys.check_constraints.*, sys.schemas.name AS schemaName, sys.tables.name AS tableName, sys.columns.name AS columnName, sys.extended_properties.value AS description
+		FROM sys.check_constraints
+		  INNER JOIN sys.tables ON sys.check_constraints.parent_object_id = sys.tables.object_id
+		  INNER JOIN sys.schemas ON sys.tables.schema_id = sys.schemas.schema_id
+		  LEFT JOIN sys.columns ON sys.check_constraints.parent_object_id = sys.columns.object_id AND sys.check_constraints.parent_column_id = sys.columns.column_id
+		  LEFT JOIN sys.extended_properties ON sys.extended_properties.major_id = sys.check_constraints.object_id AND sys.extended_properties.name = 'MS_Description'
+		WHERE sys.check_constraints.parent_object_id = ${tableObject}
+		ORDER BY name;
+		`
+		const dbCheckConstraints = await pool.request()
+			.query(sqlQuery)
+		// console.dir(dbTables)
+		// console.log(dbTables.recordset.length)
+		if (dbCheckConstraints.recordset.length === 0) {
+			return
+		}
+		dbDoc.write('\t<h3>Check Constraints</h3>\n')
+		dbDoc.write('\t<ul class="check-constraints-definition">\n')
+		for (const row of dbCheckConstraints.recordset) {
+			// console.log(`----Index ${row.name}, is_unique=${row.is_unique} (${typeof(row.is_unique)})`)
+			dbDoc.write('\t\t<li>\n')
+			if (row.description) {
+				dbDoc.write(`
+			<div class="inner-description object-description" style="--inner-columns: 3;">
+				<div>//</div>
+				<div>${row.description}</div>
+			</div>
+				`)
+			}
+			dbDoc.write(`\t\t\t<div>${row.name}</div>\n`)
+			dbDoc.write(`\t\t\t<div>${row.parent_column_id === 0 ? 'TABLE' : row.columnName}</div>\n`)
+			dbDoc.write(`\t\t\t<div style="grid-column: 1 / span 2;">${row.definition}</div>\n`)
+			dbDoc.write('\t\t</li>\n')
+		}
+		dbDoc.write('\t</ul>\n')
+	} catch (err) {
+		console.log('*** CHECK CONSTRAINTS ERROR ***')
+		console.log(err)
+	}
+}
+
+async function processTableForeignKeys(tableObject) {
+	try {
+		const sqlQuery = `
+		SELECT sys.foreign_keys.*, sys.extended_properties.value AS description
+		FROM sys.foreign_keys
+		  LEFT JOIN sys.extended_properties ON sys.foreign_keys.object_id = sys.extended_properties.major_id AND sys.extended_properties.minor_id = 0 AND sys.extended_properties.name = 'MS_Description'
+		WHERE sys.foreign_keys.parent_object_id = ${tableObject}
+		ORDER BY sys.foreign_keys.name;
+		`
+		const dbForeignKeys = await pool.request()
+			.query(sqlQuery)
+		// console.dir(dbTables)
+		// console.log(dbTables.recordset.length)
+		if (dbForeignKeys.recordset.length === 0) {
+			return
+		}
+		dbDoc.write('\t<h3>Foreign Keys</h3>\n')
+		dbDoc.write('\t<ul class="foreign-keys-definition">\n')
+		for (const row of dbForeignKeys.recordset) {
+			// console.log(`----Index ${row.name}, is_unique=${row.is_unique} (${typeof(row.is_unique)})`)
+			dbDoc.write('\t\t<li>\n')
+			if (row.description) {
+				dbDoc.write(`
+			<div class="inner-description object-description" style="--inner-columns: 3;">
+				<div>//</div>
+				<div>${row.description}</div>
+			</div>
+				`)
+			}
+			dbDoc.write(`\t\t\t<div>${row.name}</div>\n`)
+			const sqlQuery2 = `
+			SELECT sys.foreign_key_columns.*,
+			  (SELECT name FROM sys.tables WHERE object_id = sys.foreign_key_columns.parent_object_id) AS child_table,
+			  (SELECT name FROM sys.columns WHERE object_id = sys.foreign_key_columns.parent_object_id AND column_id = sys.foreign_key_columns.parent_column_id) AS child_column,
+			  (SELECT name FROM sys.tables WHERE object_id = sys.foreign_key_columns.referenced_object_id) AS parent_table,
+			  (SELECT name FROM sys.columns WHERE object_id = sys.foreign_key_columns.referenced_object_id AND column_id = sys.foreign_key_columns.referenced_column_id) AS parent_column
+			FROM sys.foreign_key_columns
+			WHERE sys.foreign_key_columns.constraint_object_id = ${row.object_id};
+			`
+			const dbForeignKeyColumns = await pool.request()
+				.query(sqlQuery2)
+			dbDoc.write(`\t\t\t<div>${dbForeignKeyColumns.recordset[0].parent_table}</div>\n`)
+			let colList = '\t\t\t<div>'
+			for (const col of dbForeignKeyColumns.recordset) {
+				colList += `${col.child_column} ⥱ ${col.parent_column}`
+				if (col.constraint_column_id < dbForeignKeyColumns.recordset.length) {
+					colList += ', '
+				}
+			}
+			colList += '</div>\n'
+			dbDoc.write(colList)
+			dbDoc.write('\t\t</li>\n')
+		}
+		dbDoc.write('\t</ul>\n')
+	} catch (err) {
+		console.log('*** FOREIGN KEYS ERROR ***')
+		console.log(err)
+	}
+}
+
 async function processTableIndexes(tableObject) {
 	try {
 		const sqlQuery = `
 		SELECT sys.indexes.*, sys.extended_properties.value AS description
 		FROM sys.indexes
 		  LEFT JOIN sys.extended_properties ON sys.indexes.object_id = sys.extended_properties.major_id AND sys.indexes.index_id = sys.extended_properties.minor_id AND sys.extended_properties.name = 'MS_Description'
-		WHERE object_id = ${tableObject} AND type > 0;
+		WHERE object_id = ${tableObject} AND type > 0
+		ORDER BY sys.indexes.name;
 		`
 		const dbIndexes = await pool.request()
 			.query(sqlQuery)
 		// console.dir(dbTables)
 		// console.log(dbTables.recordset.length)
+		if (dbIndexes.recordset.length === 0) {
+			return
+		}
 		dbDoc.write('\t<h3>Indexes</h3>\n')
 		dbDoc.write('\t<ul class="indexes-definition">\n')
 		for (const row of dbIndexes.recordset) {
@@ -153,7 +261,7 @@ async function processTableIndexes(tableObject) {
 				`)
 			}
 			dbDoc.write(`\t\t\t<div>${row.name}</div>\n`)
-			dbDoc.write(`\t\t\t<div>${row.is_unique ? 'UNIQUE' : ''}</div>\n`)
+			dbDoc.write(`\t\t\t<div class="align-center">${row.is_unique ? 'UNIQUE' : ''}</div>\n`)
 			const sqlQuery2 = `
 			SELECT sys.index_columns.*, sys.columns.name
 			FROM sys.index_columns
@@ -165,7 +273,7 @@ async function processTableIndexes(tableObject) {
 			let colList = '\t\t\t<div>'
 			for (const col of dbIndexColumns.recordset) {
 				colList += col.name
-				colList += col.is_descending_key === 0 ? ' ⬇️' : ' ⬆️'
+				colList += col.is_descending_key === 0 ? ' <svg><use href="#sort-desc"></use></svg>' : ' <svg><use href="#sort-asc"></use></svg>'
 				if (col.index_column_id < dbIndexColumns.recordset.length) {
 					colList += ', '
 				}
@@ -244,9 +352,9 @@ async function processTableColumns(tableObject) {
 }
 
 async function processTable(table) {
-	console.log(`Processing Table: ${table.name}`)
-	dbDoc.write(`\t<a id="${table.name}"></a>\n`)
-	dbDoc.write(`\t<h2>${table.name}</h2>\n`)
+	console.log(`Processing Table: ${table.schemaName === 'dbo' ? '' : table.schemaName + '.'}${table.name}`)
+	dbDoc.write(`\t<a id="${table.schemaName === 'dbo' ? '' : table.schemaName + '-'}${table.name}"></a>\n`)
+	dbDoc.write(`\t<h2>${table.schemaName === 'dbo' ? '' : table.schemaName + '.'}${table.name}</h2>\n`)
 	dbDoc.write('\t<div class="description-box">\n')
 	if (table.description) {
 		dbDoc.write(`
@@ -264,8 +372,12 @@ async function processTable(table) {
 	await processTableColumns(table.object_id)
 	console.log('--Indexes')
 	await processTableIndexes(table.object_id)
+	console.log('--Foreign Keys')
+	await processTableForeignKeys(table.object_id)
+	console.log('--Check Constraints')
+	await processTableCheckConstraints(table.object_id)
 	console.log('--Sample Data')
-	await processTableData(table.name)
+	await processTableData(table.schemaName, table.name)
 	dbDoc.write('\n')
 }
 
@@ -274,10 +386,11 @@ async function processDB () {
 		pool = await sql.connect(config)
 		await initDoc()
 		const sqlQuery = `
-		SELECT sys.tables.*, sys.extended_properties.value AS description
+		SELECT sys.tables.*, sys.schemas.name AS schemaName, sys.extended_properties.value AS description
 		FROM sys.tables
+		  INNER JOIN sys.schemas ON sys.tables.schema_id = sys.schemas.schema_id
 		  LEFT JOIN sys.extended_properties ON sys.tables.object_id = sys.extended_properties.major_id AND sys.extended_properties.minor_id = 0 AND sys.extended_properties.name = 'MS_Description'
-		ORDER BY sys.tables.name;
+		ORDER BY sys.schemas.name, sys.tables.name;
 		`
 		const dbTables = await pool.request()
 			.query(sqlQuery)
