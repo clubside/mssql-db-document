@@ -3,6 +3,8 @@
 <link
 	href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
 	rel="stylesheet">
+	<link href="https://fonts.cdnfonts.com/css/cascadia-code" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/9000.0.1/themes/prism-tomorrow.min.css" rel="stylesheet">
 <style id="css-reset">
 	@charset "utf-8";
 
@@ -103,66 +105,71 @@
 	}
 	h1 {
 		font-weight: 900;
-		font-size: 2em;
+		font-size: 2.5em;
 		margin-block: 0.67em;
 	}
 	h2 {
 		font-weight: 800;
-		font-size: 1.7em;
-		margin-block: 2em 0.3em;
+		font-size: 2em;
+		margin-block: 3em 0.3em;
 	}
 	h3 {
 		font-weight: 700;
+		font-size: 1.7em;
+		margin-block: 2em 0.3em;
+	}
+	h4 {
+		font-weight: 600;
 		font-size: 1.5em;
-		margin-block: 1em;
+		margin-block: 1em 0.3em;
 	}
 	strong {
 		font-weight: 600;
 	}
-	.table-jump {
+	em {
+		font-style: italic;
+	}
+	code[class*="language-"],
+	pre[class*="language-"] {
+		font-family: 'Cascadia Code', monospace;
+	}
+	.jump {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5em;
 		place-content: center;
-		margin: 1em 0;
+		margin: 1em 0 2em;
 	}
-	.table-jump a {
+	.jump a {
 		padding: 0.25em 0.5em;
 		border-radius: 0.5em;
 		background-color: #ccc;
 	}
-	.columns-definition li,
-	.indexes-definition li,
-	.foreign-keys-definition li,
-	.check-constraints-definition li {
+	.definition li {
 		display: grid;
-		grid-template-columns: 3fr 2fr;
 		line-height: 1.6;
 		padding: 0.2em 0;
 	}
-	.indexes-definition li {
+	.definition-columns li {
+		grid-template-columns: 1fr 1fr;
+	}
+	.definition-indexes li {
 		grid-template-columns: 2fr 6em 3fr;
 	}
-	.foreign-keys-definition li {
+	.definition-foreign-keys li {
 		grid-template-columns: 3fr 2fr 3fr;
 	}
-	.check-constraints-definition li {
+	.definition-check-constraints li {
 		grid-template-columns: 3fr 2fr;
 	}
-	.columns-definition li div,
-	.indexes-definition li div,
-	.foreign-keys-definition li div,
-	.check-constraints-definition li div {
+	.definition li div {
 		padding: 0 0.25em;
 		overflow-wrap: anywhere;
 	}
-	.columns-definition li:nth-child(even),
-	.indexes-definition li:nth-child(even),
-	.foreign-keys-definition li:nth-child(even),
-	.check-constraints-definition li:nth-child(even) {
+	.definition li:nth-child(even) {
 		background-color: #ddd;
 	}
-	.indexes-definition svg {
+	.definition svg {
 		width: 1em;
 		height: 1em;
 	}
@@ -195,12 +202,14 @@
 	.inner-description {
 		grid-column: 1 / span var(--inner-columns);
 	}
-	.columns-definition .object-description div,
-	.indexes-definition .object-description div {
+	.definition .object-description div {
 		padding: 0;
 	}
 	.align-center {
 		text-align: center;
+	}
+	.align-right {
+		text-align: right;
 	}
 	.highlight-blue {
 		color: blue;
